@@ -58,7 +58,8 @@ impl Interpreter {
 
 	pub fn Shell(&mut self) -> Result<()> {
 		let stdin = io::stdin();
-
+		
+		// FIXME: shell doesn't work well + bugs
 		for line in stdin.lines() {
 			print!("> ");
 			let line = line.unwrap().to_string();

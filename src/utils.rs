@@ -10,8 +10,8 @@ pub fn throw_error(line: u32, err: Result<(), String>) {
 }
 
 fn throw_detailed_error(line: u32, err: Result<(), String>, place: String) {
-    eprintln!("Error: {error} in {place}\n\n
-              \t {line} | \n",
+    eprintln!("Error: {error} in {place}\n
+              \t line: {line} | \n",
               error = err.err().unwrap(), place = place, line = line);
 }
 
