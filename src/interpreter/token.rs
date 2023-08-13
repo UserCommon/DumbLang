@@ -33,14 +33,13 @@ impl Display for TokenType {
 
 // literal: FIXME dont need it because enums can store values
 // and i assume, that u can just use enums...
-pub struct Token<T: Display> {
+pub struct Token {
 	token_type: TokenType,
 	lexeme: String,
-	literal: Option<T>,
 	line: u32,
 }
 
-impl<T: Display> Token<T> {
+impl Token {
 	pub fn new<S>(token_t: TokenType, lexeme: S, literal: Option<T>, line: u32) -> Self
 	where 
 		S: Into<String>	
@@ -49,16 +48,15 @@ impl<T: Display> Token<T> {
 		Self {
 			token_type : token_t,
 			lexeme : lexeme.into(),
-			literal : literal,
 			line : line
 		}
 	}
 }
 
-impl<T: Display> Debug for Token<T> {
+impl Debug for Token {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self.literal {
-			Some(lit) => write!(f, "{} {} {} {}", self.token_type, self.lexeme, lit, self.line),
+			Some(lit) => write!(f, "{} {} {}", self.token_type, self.lexeme, self.line),
 			None => write!(f, "{} {} {} {}", self.token_type, self.lexeme, " ", self.line),
 		}
     }
