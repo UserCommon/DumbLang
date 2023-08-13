@@ -26,11 +26,11 @@ impl Interpreter {
 
 	pub fn Execute<T: Into<String>>(&mut self, source: T) -> Result<()> {
 		let source: String = source.into();
-		let scanner: Scanner<String> = Scanner::new(source);
+		let mut scanner: Scanner = Scanner::new(source);
 		let tokenized = scanner.tokenize();
 		
 		for token in tokenized {
-			println!("{}", token);
+			println!("{:?}", token);
 		}
 
 		Ok(())

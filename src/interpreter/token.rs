@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 use std::fmt::{Display, Debug};
+extern crate lazy_static;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     // Single-char tokens
     LeftParen, RightParen, LeftBrace, RightBrace,
@@ -14,7 +15,7 @@ pub enum TokenType {
     Less, LessEqual,
 
     // Literals
-    Identifier, Str(String), Number,
+    Identifier, Str(String), Number(f32),
 
     // Keywords
     And, Class, If, Or, Else, False, True, Fn,
@@ -30,7 +31,32 @@ impl Display for TokenType {
     }
 }
 
+use std::collections::HashMap;
+use TokenType::*;
 
+lazy_static::lazy_static! {
+	pub static ref KEYWORDS: HashMap<String, TokenType> = { 
+		let mut m = HashMap::new();
+		m.insert("and".to_string(), And);
+		m.insert("or".to_string(), Or);
+		m.insert("class".to_string(), Class);
+		m.insert("fn".to_string(), TokenType::Fn);
+		m.insert("if".to_string(), If);
+		m.insert("else".to_string(), Else);
+		m.insert("true".to_string(), True);
+		m.insert("false".to_string(), False);
+		m.insert("for".to_string(), For);
+		m.insert("while".to_string(), While);
+		m.insert("nil".to_string(), Nil);
+		m.insert("print".to_string(), Print);
+		m.insert("return".to_string(), Return);
+		m.insert("super".to_string(), Super);
+		m.insert("this".to_string(), TokenType::This);
+		m.insert("let".to_string(), Let);
+
+		m
+	};
+}
 // literal: FIXME dont need it because enums can store values
 // and i assume, that u can just use enums...
 pub struct Token {
@@ -40,7 +66,7 @@ pub struct Token {
 }
 
 impl Token {
-	pub fn new<S>(token_t: TokenType, lexeme: S, literal: Option<T>, line: u32) -> Self
+	pub fn new<S>(token_t: TokenType, lexeme: S, line: u32) -> Self
 	where 
 		S: Into<String>	
 	{
@@ -55,9 +81,6 @@ impl Token {
 
 impl Debug for Token {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self.literal {
-			Some(lit) => write!(f, "{} {} {}", self.token_type, self.lexeme, self.line),
-			None => write!(f, "{} {} {} {}", self.token_type, self.lexeme, " ", self.line),
-		}
+		write!(f, "{} {} {}", self.token_type, self.lexeme, self.line)
     }
 }

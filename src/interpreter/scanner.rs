@@ -1,154 +1,238 @@
 
 use crate::utils::throw_error;
-use super::token::{Token, TokenType};
+use super::token::{Token, TokenType, KEYWORDS};
 use TokenType::*;
 
-pub struct Scanner<T: std::fmt::Display> {
+pub struct Scanner {
     source: String,
-    tokens: Vec<Token<T>>,
+    tokens: Vec<Token>,
     start: u32,
     current: u32,
     line: u32,
 }
 
-impl<T: std::fmt::Display> Scanner<T> {
+impl Scanner {
     pub fn new(source: String) -> Self {
         Self { source, tokens: vec![], current: 0, start: 0, line: 1 }
     }
 
-    fn scan_tokens(&mut self) -> Vec<Token<T>> {
-        let prepared_src = self.source.split(" ");
-        for src_token in prepared_src {
-            self.scan_token(src_token);
+    fn scan_tokens(&mut self) -> () {
+        while !self.is_ended() {
+            self.start = self.current;
+            self.scan_token()
         }
-        self.tokens.push(Token::new(Eof, "", None, self.line));
-        &mut self.tokens
-    
+
+        self.tokens.push(Token::new(Eof, "", self.line));
     }
 
-    fn scan_token(&mut self, token: &str) {
+    fn scan_token(&mut self) {
         // FIXME if-let ?
-        if !token.is_empty() && token.chars().nth(0).unwrap() == '\n' {
-            self.line += 1;
-            self.scan_token(&token[1..]);
-        }
-        match token {
-            " " | "\r" | "\t" => {
+        let c = self.advance();
+        match c {
+            ' ' | '\r' | '\t' => {
                 ();
             },
-            "(" => {
+            '(' => {
                 self.pushToken(LeftParen);
             },
 
-            ")" => {
+            ')' => {
                 self.pushToken(RightParen);
             },
 
-            "{" => {
+            '{' => {
                 self.pushToken(LeftBrace);
             },
 
-            "}" => {
+            '}' => {
                 self.pushToken(LeftBrace);
             },
 
-            "," => {
+            ',' => {
                 self.pushToken(Comma);
             },
 
-            "." => {
+            '.' => {
                 self.pushToken(Dot);
             },
 
-            "-" => {
+            '-' => {
                 self.pushToken(Minus);
             },
 
-            "+" => {
+            '+' => {
                 self.pushToken(Plus);
             },
 
-            "*" => {
+            '*' => {
                 self.pushToken(Star);
             },
 
-            "/" => {
-                self.pushToken(Slash);
-            },
-
-            ";" => {
+            ';' => {
                 self.pushToken(Semicolon);
             },
 
-            "!" => {
-                self.pushToken(Bang);
+            '!' => {
+                if self.nmatch('=') {
+                    self.pushToken(BangEqual);
+                } else {
+                    self.pushToken(Bang);
+                }
             },
 
-            "<" => {
-                self.pushToken(Less);
+            '=' => {
+                if self.nmatch('=') {
+                    self.pushToken(EqualEqual);
+                } else {
+                    self.pushToken(Equal);
+                }
             },
 
-            ">" => {
-                self.pushToken(Greater);
-            }
-
-            // 2
-            "!=" => {
-                self.pushToken(BangEqual);
+            '<' => {
+                if self.nmatch('=') {
+                    self.pushToken(LessEqual);
+                } else {
+                    self.pushToken(Less);
+                }
             },
 
-            "==" => {
-                self.pushToken(Equal);
+            '>' => {
+                if self.nmatch('=') {
+                    self.pushToken(GreaterEqual);
+                } else {
+                    self.pushToken(Greater);
+                }
+            } 
+
+            '/' => {
+                if self.nmatch('/') {
+                    while self.peek() != '\n' && !self.is_ended() {
+                        self.advance();
+                    }
+                } else {
+                    self.pushToken(Slash)
+                }
             },
 
-            "<=" => {
-                self.pushToken(LessEqual);
+            '\n' => {
+                self.line += 1;
             },
 
-            ">=" => {
-                self.pushToken(GreaterEqual);
+            '"' => {
+                self.collectString();
             },
-
-            "//" => {
-                // FIXME idunno how to implement comments without mutating src...
-            },
-
-            r#"""# => {
-                // FIXME there is trouble due splitting
-                // It's causes situatin where "123 123" 
-                // Lexs as ("123)  (123") like independent tokens
-                // but it's should wait until " at end
-
-                // man...
-                // welp, there is solution...
-                // Iterating over the source twice, making "" literals one token
-                self.pushToken(Str("123".to_string()));
-            }
-            
             
             _ => {
-                throw_error(self.line, Result::Err("Unexpected token".to_string()))
+                if c.is_numeric() {
+                    self.collectNumber();
+                } else if c.is_alphabetic() {
+                    self.collectIdentifier();
+                } else {
+                    throw_error(self.line, Result::Err("Unexpected token".to_string()))
+                }
             }
         };
         ()
     }
 
+    fn advance(&mut self) -> char {
+        self.current += 1;
+        self.source.chars().nth(self.current as usize).unwrap()
+    }
+
+    fn nmatch(&mut self, expected: char) -> bool {
+        if self.is_ended() {
+            return false;
+        }
+        if self.source.chars().nth(self.current as usize).unwrap() != expected {
+            return false;
+        }
+        self.current += 1;
+        true
+    }
+
     fn pushToken(&mut self, token_type: TokenType) {
         // TODO! refactoring may be required in future
-        self.tokens.push(Token::new(token_type, "x", None, self.line));
+        let text = &self.source[(self.start as usize)..(self.current as usize)];
+        self.tokens.push(Token::new(token_type, text, self.line));
     }
+
+    fn collectString(&mut self) {
+        while (self.peek() != '"') && (!self.is_ended()) {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+        if self.is_ended() {
+            throw_error(self.line, Result::Err("unterminated string".to_string()));
+        }
+        self.advance();
+
+        let value: String = (&self.source[self.start as usize - 1..self.current as usize - 1]).to_string();
+        self.pushToken(Str(value));
+    }
+
+    fn collectNumber(&mut self) {
+        while self.peek().is_numeric() {
+            self.advance();
+        }
+
+        if self.peek() == '.' && self.peek_next().is_numeric() {
+            self.advance();
+
+            while self.peek().is_numeric() {
+                self.advance();
+            }
+        }
+        let num = &self.source[self.start as usize .. self.current as usize].to_string();
+        self.pushToken(Number(num.parse::<f32>().expect("cant unwrap number")));
+    }
+
+    fn collectIdentifier(&mut self) {
+        while self.peek().is_alphanumeric() {
+            self.advance();
+        }
+
+        let text: String = self.source[self.start as usize..self.current as usize].to_string();
+        let token: Option<&TokenType> = KEYWORDS.get(&text);
+
+        match token {
+            None => self.pushToken(Identifier),
+            Some(x) => self.pushToken(x.clone())
+        };
+    }
+
+
+    fn peek(&self) -> char {
+        if self.is_ended() {
+            return '\0';
+        }
+        self.source.chars().nth(self.current as usize).unwrap()
+    }
+
+    fn peek_next(&self) -> char {
+        if self.current + 1 > self.source.len() as u32 {
+            return '\0';
+        }
+        self.source.chars().nth((self.current + 1) as usize).unwrap()
+    }
+ 
 
     fn is_ended(&self) -> bool {
         self.current >= self.source.len() as u32
     }
 
-    pub fn tokenize(&self) -> Vec<String> {
-        todo!();
+    pub fn tokenize(&mut self) -> &Vec<Token> {
+        self.scan_tokens();
+        &self.tokens
     }
 }
 
 #[cfg(test)]
 mod interpreter_test {
+    use crate::interpreter::token::Token;
+
     use super::Scanner;
 
 
@@ -159,7 +243,6 @@ mod interpreter_test {
             let some_2 = "kwak ky ";
         "#;
 
-        let mut scan = Scanner::<String>::new(file.into());
-        assert_eq!(scan.)
+        let mut scan = Scanner::new(file.into());
     }
 }
