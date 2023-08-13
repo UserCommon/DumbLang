@@ -137,7 +137,7 @@ impl Scanner {
 
     fn advance(&mut self) -> char {
         self.current += 1;
-        self.source.chars().nth(self.current as usize).unwrap()
+        self.source.chars().nth(self.current as usize - 1).unwrap()
     }
 
     fn nmatch(&mut self, expected: char) -> bool {
@@ -185,8 +185,8 @@ impl Scanner {
                 self.advance();
             }
         }
-        let num = &self.source[self.start as usize .. self.current as usize].to_string();
-        self.pushToken(Number(num.parse::<f32>().expect("cant unwrap number")));
+        let num = &self.source[(self.start) as usize .. self.current as usize].to_string();
+        self.pushToken(Number(num.parse::<f32>().expect(&format!("cant unwrap number: {num}"))));
     }
 
     fn collectIdentifier(&mut self) {
@@ -199,23 +199,17 @@ impl Scanner {
 
         match token {
             None => self.pushToken(Identifier),
-            Some(x) => self.pushToken(x.clone())
+            Some(x) => self.pushToken(x.clone() )
         };
     }
 
 
     fn peek(&self) -> char {
-        if self.is_ended() {
-            return '\0';
-        }
-        self.source.chars().nth(self.current as usize).unwrap()
+        self.source.chars().nth(self.current as usize).unwrap_or('\0')
     }
 
     fn peek_next(&self) -> char {
-        if self.current + 1 > self.source.len() as u32 {
-            return '\0';
-        }
-        self.source.chars().nth((self.current + 1) as usize).unwrap()
+        self.source.chars().nth((self.current + 1) as usize).unwrap_or('\0')
     }
  
 
